@@ -134,8 +134,8 @@ export function AnalysisResults({
           <StatCard
             label="Non Compliance Items"
             value={nonCompliantCount}
-            fromColor="from-red-500"
-            toColor="to-red-600"
+            fromColor="from-rose-400"
+            toColor="to-rose-500"
             labelColor="text-red-100"
             icon="⚠"
           />
