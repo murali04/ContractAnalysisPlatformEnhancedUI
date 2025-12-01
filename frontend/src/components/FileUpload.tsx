@@ -79,7 +79,7 @@ export function FileUpload({
           <label className="block text-gray-700 mb-3">
             <span className="flex items-center gap-2">
               <FileSpreadsheet className="w-4 h-4 text-purple-500" />
-              Upload Excel File
+              Upload Obligations File
             </span>
           </label>
           <div className="relative">
@@ -94,11 +94,10 @@ export function FileUpload({
             />
             <label
               htmlFor="excel-upload"
-              className={`flex flex-col items-center justify-center gap-3 p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all min-h-[140px] ${
-                excelFile
+              className={`flex flex-col items-center justify-center gap-3 p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all min-h-[140px] ${excelFile
                   ? "border-green-400 bg-linear-to-br from-green-50 to-emerald-50 shadow-md"
                   : "border-purple-200 hover:border-purple-400 bg-linear-to-br from-purple-50 to-pink-50 hover:shadow-lg"
-              } ${isAnalyzing ? "opacity-50 cursor-not-allowed" : ""}`}
+                } ${isAnalyzing ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {excelFile ? (
                 <>
@@ -147,7 +146,7 @@ export function FileUpload({
           <label className="block text-gray-700 mb-3">
             <span className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-purple-500" />
-              Upload PDF File
+              Upload Contract File
             </span>
           </label>
           <div className="relative">
@@ -162,11 +161,10 @@ export function FileUpload({
             />
             <label
               htmlFor="pdf-upload"
-              className={`flex flex-col items-center justify-center gap-3 p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all min-h-[140px] ${
-                pdfFile
+              className={`flex flex-col items-center justify-center gap-3 p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all min-h-[140px] ${pdfFile
                   ? "border-green-400 bg-linear-to-br from-green-50 to-emerald-50 shadow-md"
                   : "border-purple-200 hover:border-purple-400 bg-linear-to-br from-purple-50 to-pink-50 hover:shadow-lg"
-              } ${isAnalyzing ? "opacity-50 cursor-not-allowed" : ""}`}
+                } ${isAnalyzing ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {pdfFile ? (
                 <>
