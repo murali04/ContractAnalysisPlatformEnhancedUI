@@ -1,6 +1,6 @@
 import { useState } from "react";
-import RadialHealthChart from "../charts/RadialHealthChart";
-import StatusBarChart from "../charts/StatusBarChart";
+import { RadialHealthChart } from "../charts/RadialHealthChart";
+import { StatusBarChart } from "../charts/StatusBarChart";
 import { useAuth } from "../context/AuthContext";
 import { ItemsList } from "./ItemsList";
 import { PdfContainer } from "./pdf/PdfContainer";
@@ -114,42 +114,47 @@ export function AnalysisResults({
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <StatCard
-            label="Total Obligations"
-            value={totalObligations}
-            fromColor="from-purple-500"
-            toColor="to-purple-600"
-            labelColor="text-purple-100"
-            icon="📊"
-          />
-          <StatCard
-            label="Compliance Items"
-            value={compliantCount}
-            fromColor="from-green-500"
-            toColor="to-green-600"
-            labelColor="text-green-100"
-            icon="✓"
-          />
-          <StatCard
-            label="Non Compliance Items"
-            value={nonCompliantCount}
-            fromColor="from-rose-400"
-            toColor="to-rose-500"
-            labelColor="text-red-100"
-            icon="⚠"
-          />
-          <StatCard
-            label="Processing Time"
-            value="3.2s"
-            fromColor="from-blue-500"
-            toColor="to-blue-600"
-            labelColor="text-blue-100"
-            icon="⚡"
-          />
-        </div>
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6  mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="flex flex-col gap-2">
+              <StatCard
+                label="Total Obligations"
+                value={totalObligations}
+                fromColor="from-purple-500"
+                toColor="to-purple-600"
+                labelColor="text-purple-100"
+                icon="📊"
+              />
+              <StatCard
+                label="Compliance Items"
+                value={compliantCount}
+                fromColor="from-green-500"
+                toColor="to-green-600"
+                labelColor="text-green-100"
+                icon="✓"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <StatCard
+                label="Non Compliance Items"
+                value={nonCompliantCount}
+                fromColor="from-rose-400"
+                toColor="to-rose-500"
+                labelColor="text-red-100"
+                icon="⚠"
+              />
+              <StatCard
+                label="Processing Time"
+                value="3.2s"
+                fromColor="from-blue-500"
+                toColor="to-blue-600"
+                labelColor="text-blue-100"
+                icon="⚡"
+              />
+            </div>
+          </div>
+          {/* Charts Section */}
           <ChartContainer title="Overall Health">
             <RadialHealthChart value={avgScore} radialData={radialData} />
           </ChartContainer>
@@ -171,7 +176,13 @@ export function AnalysisResults({
           </div>
 
           {/* Center: PDF Viewer */}
-          <div className="lg:col-span-5">
+          <div
+            className={`lg:col-span-5 pdf-highlight-${
+              selectedObligation?.is_present === "Yes"
+                ? "compliance"
+                : "non-compliance"
+            }`}
+          >
             <PdfContainer file={pdfFile} selectedClause={selectedClause} />
           </div>
 
