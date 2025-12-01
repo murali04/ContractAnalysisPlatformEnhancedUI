@@ -7,9 +7,11 @@ import {
   ListChecks,
   XCircle,
   AlertCircle,
-  Info
+  Info,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { StatusBadge } from "./StatusBadge";
 
 export function TabsPanel({
@@ -20,6 +22,34 @@ export function TabsPanel({
   const [activeTab, setActiveTab] = useState<
     "details" | "evidence" | "suggestion"
   >("details");
+
+  const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (selectedObligation?.cot_steps) {
+      const initialExpanded = new Set<number>();
+      selectedObligation.cot_steps.forEach((step: any, index: number) => {
+        if (step.status === 'FAIL') {
+          initialExpanded.add(index);
+        }
+      });
+      setExpandedSteps(initialExpanded);
+    } else {
+      setExpandedSteps(new Set());
+    }
+  }, [selectedObligation]);
+
+  const toggleStep = (index: number) => {
+    setExpandedSteps((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
 
   const changeClause = (clause: string) => {
     setSelectedClause(clause);
@@ -109,32 +139,70 @@ export function TabsPanel({
                 <div>
                   <h4 className="text-xs font-bold text-slate-900 mb-3 flex items-center gap-2"><ListChecks size={14} className="text-indigo-500" /> Validation Steps</h4>
                   <div className="space-y-2">
-                    {selectedObligation.cot_steps?.map((step: any, i: number) => (
-                      <div key={i} className={`p-2.5 rounded-lg border text-xs flex items-start gap-3 ${step.status === 'FAIL' ? 'bg-rose-50/50 border-rose-100 text-rose-800' : 'bg-emerald-50/50 border-emerald-100 text-emerald-800'}`}>
-                        <div className="mt-0.5 shrink-0">
-                          {step.status === 'FAIL' ? <XCircle size={14} /> : <CheckCircle size={14} />}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold flex justify-between items-center">
-                            <span>{step.step_name}</span>
-                            <div className="flex items-center gap-2">
-                              {step.is_critical && <span className="text-[9px] border border-current px-1 rounded opacity-70">CRITICAL</span>}
-                              <div className="group relative">
-                                <Info size={14} className="opacity-70 cursor-help" />
-                                <div className="absolute bottom-full right-0 mb-2 w-48 bg-slate-800 text-white text-[10px] p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                  {stepDescriptions[step.step_name] || step.finding}
+                    {selectedObligation.cot_steps?.map((step: any, i: number) => {
+                      const isExpanded = expandedSteps.has(i);
+                      return (
+                        <div
+                          key={i}
+                          onClick={() => toggleStep(i)}
+                          className={`p-2.5 rounded-lg border text-xs flex items-start gap-3 cursor-pointer transition-all duration-200 hover:shadow-sm ${step.status === "FAIL"
+                              ? "bg-rose-50/50 border-rose-100 text-rose-800"
+                              : "bg-emerald-50/50 border-emerald-100 text-emerald-800"
+                            }`}
+                        >
+                          <div className="mt-0.5 shrink-0">
+                            {step.status === "FAIL" ? (
+                              <XCircle size={14} />
+                            ) : (
+                              <CheckCircle size={14} />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-semibold flex justify-between items-center">
+                              <span>{step.step_name}</span>
+                              <div className="flex items-center gap-2">
+                                {step.is_critical && (
+                                  <span className="text-[9px] border border-current px-1 rounded opacity-70">
+                                    CRITICAL
+                                  </span>
+                                )}
+                                <div
+                                  className="group relative"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Info
+                                    size={14}
+                                    className="opacity-70 cursor-help"
+                                  />
+                                  <div className="absolute bottom-full right-0 mb-2 w-48 bg-slate-800 text-white text-[10px] p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                    {stepDescriptions[step.step_name] ||
+                                      step.finding}
+                                  </div>
                                 </div>
+                                {isExpanded ? (
+                                  <ChevronUp size={14} className="opacity-50" />
+                                ) : (
+                                  <ChevronDown
+                                    size={14}
+                                    className="opacity-50"
+                                  />
+                                )}
                               </div>
                             </div>
+                            {isExpanded && (
+                              <div
+                                className={`mt-1.5 text-[11px] leading-relaxed opacity-90 font-normal border-t pt-1.5 ${step.status === "FAIL"
+                                    ? "border-rose-200/50"
+                                    : "border-emerald-200/50"
+                                  }`}
+                              >
+                                {step.finding}
+                              </div>
+                            )}
                           </div>
-                          {step.status === 'FAIL' && (
-                            <div className="mt-1.5 text-[11px] leading-relaxed opacity-90 font-normal border-t border-rose-200/50 pt-1.5">
-                              {step.finding}
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
