@@ -1,26 +1,24 @@
-import { CheckCircle, Cpu, FileX, Lightbulb } from "lucide-react";
 import { useState } from "react";
 import RadialHealthChart from "../charts/RadialHealthChart";
 import StatusBarChart from "../charts/StatusBarChart";
+import { useAuth } from "../context/AuthContext";
 import { ItemsList } from "./ItemsList";
 import { PdfContainer } from "./pdf/PdfContainer";
 import ChartContainer from "./reusable/ChartContainer";
-import { ScoreBar } from "./reusable/ScoreBar";
-import SearchBox from "./reusable/SearchBox";
 import StatCard from "./StatCard";
-import { StatusBadge } from "./StatusBadge";
 import { TabsPanel } from "./TabsPanel";
-import { useAuth } from "../context/AuthContext";
 
 interface AnalysisResultsProps {
   pdfFile: File | null;
   analysisData: any;
 }
 
-export function AnalysisResults({ pdfFile, analysisData }: AnalysisResultsProps) {
+export function AnalysisResults({
+  pdfFile,
+  analysisData,
+}: AnalysisResultsProps) {
   // Get username from context or fallback to localStorage directly to ensure it displays
-  const { username: contextUsername } = useAuth();
-  const username = contextUsername || localStorage.getItem("username") || "User";
+  const { username = "User" } = useAuth();
 
   const [selectedObligation, setSelectedObligation] = useState<
     null | (typeof analysisData.results)[0]
@@ -29,7 +27,7 @@ export function AnalysisResults({ pdfFile, analysisData }: AnalysisResultsProps)
 
   const handleChangeObligation = (obligation: any) => {
     setSelectedObligation(obligation);
-    setSelectedClause("");
+    setSelectedClause(obligation.supporting_clauses.join("\n"));
   };
 
   const [openItemId, setOpenItemId] = useState<number | null>(null);
@@ -55,8 +53,12 @@ export function AnalysisResults({ pdfFile, analysisData }: AnalysisResultsProps)
   // Calculate stats
   const results = analysisData?.results || [];
   const totalObligations = results.length;
-  const compliantCount = results.filter((r: any) => r.is_present === "Yes").length;
-  const nonCompliantCount = results.filter((r: any) => r.is_present === "No").length;
+  const compliantCount = results.filter(
+    (r: any) => r.is_present === "Yes"
+  ).length;
+  const nonCompliantCount = results.filter(
+    (r: any) => r.is_present === "No"
+  ).length;
 
   // Calculate average confidence/score for radial chart
   // Ensure we handle potential string values or missing fields robustly
@@ -77,8 +79,6 @@ export function AnalysisResults({ pdfFile, analysisData }: AnalysisResultsProps)
     { name: "Compliance", value: compliantCount, fill: "#00a63e" },
     { name: "Non Compliance", value: nonCompliantCount, fill: "#e7000b" },
   ];
-
-
 
   const changeClause = (clause: string) => {
     setSelectedClause(clause);
@@ -184,7 +184,6 @@ export function AnalysisResults({ pdfFile, analysisData }: AnalysisResultsProps)
             />
           </div>
         </div>
-
       </div>
     </div>
   );
