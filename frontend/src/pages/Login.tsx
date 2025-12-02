@@ -15,12 +15,12 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex justify-center bg-slate-50 fade-in bg-linear-to-r from-purple-600 to-pink-600">
+    <div className="min-h-screen flex justify-center bg-slate-50 fade-in bg-linear-to-r from-linear-primary to-linear-secondary">
       {/* Left Pane - Branding */}
       <div className="flex flex-col justify-center p-20 text-white relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
         <div className="relative">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/30 border border-indigo-400/30 mb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-enterprise-bg border border-enterprise-border mb-6">
             <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
             <span className="text-md font-semibold tracking-wide">
               v2.5 Enterprise
@@ -43,7 +43,7 @@ export const Login = () => {
       <div className="flex items-center justify-center p-12">
         <div className="w-full max-w-md bg-white p-10 rounded-2xl shadow-xl border border-slate-100">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 text-indigo-600">
+            <div className="w-16 h-16 bg-icon-bg-primary rounded-full flex items-center justify-center mx-auto mb-4 text-icon-primary">
               <User size={32} />
             </div>
             <h2 className="text-2xl font-bold text-slate-800">Welcome Back</h2>
@@ -68,7 +68,7 @@ export const Login = () => {
             </div>
             <button
               type="submit"
-              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all transform hover:scale-[1.02]"
+              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all transform hover:scale-[1.02] cursor-pointer"
             >
               Enter Workspace
             </button>

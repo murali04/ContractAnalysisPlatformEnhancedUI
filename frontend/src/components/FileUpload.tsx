@@ -53,16 +53,16 @@ export function FileUpload({
   };
 
   return (
-    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-purple-100 p-5">
+    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-border-primary p-5">
       <div className="flex flex-col justify-center relative overflow-hidden">
         <div className="relative">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/30 border border-indigo-400/30 mb-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-enterprise-bg border border-enterprise-border mb-2">
             <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
             <span className="text-xs font-semibold tracking-wide">
               v2.5 Enterprise
             </span>
           </div>
-          <h1 className="text-5xl leading-16 mb-2 bg-linear-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+          <h1 className="text-5xl leading-16 mb-2 bg-linear-to-r from-linear-primary to-linear-secondary bg-clip-text text-transparent">
             Contract Intelligence Platform
           </h1>
           <p className="text-lg mb-2">
@@ -78,7 +78,7 @@ export function FileUpload({
         <div>
           <label className="block text-gray-700 mb-3">
             <span className="flex items-center gap-2">
-              <FileSpreadsheet className="w-4 h-4 text-purple-500" />
+              <FileSpreadsheet className="w-4 h-4 text-icon-secondary" />
               Upload Obligations File
             </span>
           </label>
@@ -97,7 +97,7 @@ export function FileUpload({
               className={`flex flex-col items-center justify-center gap-3 p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all min-h-10 ${
                 excelFile
                   ? "border-green-400 bg-linear-to-br from-green-50 to-emerald-50 shadow-md"
-                  : "border-purple-200 hover:border-purple-400 bg-linear-to-br from-purple-50 to-pink-50 hover:shadow-lg"
+                  : "border-file-upload-border hover:border-file-upload-hover-border bg-linear-to-br from-backdrop-linear-primary to-backdrop-linear-secondary hover:shadow-lg"
               } ${isAnalyzing ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {excelFile ? (
@@ -127,8 +127,8 @@ export function FileUpload({
                 </div>
               ) : (
                 <div className="flex gap-6">
-                  <div className="w-12 h-12 bg-purple-200 rounded-full flex items-center justify-center">
-                    <Upload className="w-6 h-6 text-purple-600" />
+                  <div className="w-12 h-12 bg-icon-bg-primary rounded-full flex items-center justify-center">
+                    <Upload className="w-6 h-6 text-icon-primary" />
                   </div>
                   <div className="text-center">
                     <p className="text-gray-700">Drop Excel file here</p>
@@ -146,7 +146,7 @@ export function FileUpload({
         <div>
           <label className="block text-gray-700 mb-3">
             <span className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-purple-500" />
+              <FileText className="w-4 h-4 text-icon-secondary" />
               Upload Contract File
             </span>
           </label>
@@ -165,7 +165,7 @@ export function FileUpload({
               className={`flex flex-col items-center justify-center gap-3 p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all min-h-10 ${
                 pdfFile
                   ? "border-green-400 bg-linear-to-br from-green-50 to-emerald-50 shadow-md"
-                  : "border-purple-200 hover:border-purple-400 bg-linear-to-br from-purple-50 to-pink-50 hover:shadow-lg"
+                  : "border-file-upload-border hover:border-file-upload-hover-border bg-linear-to-br from-backdrop-linear-primary to-backdrop-linear-secondary hover:shadow-lg"
               } ${isAnalyzing ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {pdfFile ? (
@@ -195,8 +195,8 @@ export function FileUpload({
                 </div>
               ) : (
                 <div className="flex gap-6">
-                  <div className="w-12 h-12 bg-purple-200 rounded-full flex items-center justify-center">
-                    <Upload className="w-6 h-6 text-purple-600" />
+                  <div className="w-12 h-12 bg-icon-bg-primary rounded-full flex items-center justify-center">
+                    <Upload className="w-6 h-6 text-icon-primary" />
                   </div>
                   <div className="text-center">
                     <p className="text-gray-700">Drop PDF file here</p>
@@ -216,13 +216,17 @@ export function FileUpload({
         <button
           onClick={onAnalyze}
           disabled={!excelFile || !pdfFile || isAnalyzing}
-          className="cursor-pointer mb-2 px-8 py-3 text-white rounded-xl hover:opacity-90 hover:shadow-xl disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-lg transform hover:scale-105"
-          style={{
-            background:
-              !excelFile || !pdfFile || isAnalyzing
-                ? undefined
-                : "linear-gradient(135deg, #A100FF 0%, #FF00E5 100%)",
-          }}
+          className={`cursor-pointer mb-2 px-8 py-3 text-white rounded-xl hover:opacity-90 hover:shadow-xl disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-lg transform hover:scale-105 ${
+            !(!excelFile || !pdfFile || isAnalyzing)
+              ? "bg-linear-to-r from-submit-button-linear-primary to-submit-button-linear-secondary"
+              : ""
+          }`}
+          // style={{
+          //   background:
+          //     !excelFile || !pdfFile || isAnalyzing
+          //       ? undefined
+          //       : "linear-gradient(135deg, #A100FF 0%, #FF00E5 100%)",
+          // }}
         >
           {isAnalyzing ? "Analyzing..." : "Analyze Documents"}
         </button>

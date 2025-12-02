@@ -17,7 +17,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-purple-50 via-white to-pink-50 pb-[50px]">
+    <div className="min-h-screen bg-linear-to-br from-backdrop-linear-primary via-white to-backdrop-linear-secondary pb-[50px]">
       {/* Header */}
       <Header />
       {children}

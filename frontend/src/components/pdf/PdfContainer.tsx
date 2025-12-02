@@ -22,7 +22,7 @@ export function PdfContainer({
     <div className="bg-white/90 backdrop-blur-sm border border-purple-200 rounded-xl p-3 h-[600px] flex flex-col shadow-lg">
       <div className="flex justify-between items-center mb-4 pb-3 border-b border-purple-200">
         <span className="text-xl flex items-center gap-2">
-          <FileText className="w-5 h-5 text-purple-600" />
+          <FileText className="w-5 h-5 text-icon-primary" />
           <span className="text-gray-900 text-lg font-medium">
             Contract Preview
           </span>

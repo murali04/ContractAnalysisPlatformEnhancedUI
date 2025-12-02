@@ -93,65 +93,72 @@ export function AnalysisResults({
   const handleExportReport = () => {
     // Create CSV header
     const headers = [
-      'Obligation',
-      'Status',
-      'Reason',
-      'Confidence (%)',
-      'Similarity Score',
-      'Page',
-      'Line',
-      'Suggestion',
-      'Supporting Clauses',
-      'Validation Steps'
+      "Obligation",
+      "Status",
+      "Reason",
+      "Confidence (%)",
+      "Similarity Score",
+      "Page",
+      "Line",
+      "Suggestion",
+      "Supporting Clauses",
+      "Validation Steps",
     ];
 
     // Create CSV rows
     const rows = results.map((r: any) => {
-      const validationSteps = r.cot_steps?.map((step: any) =>
-        `${step.step_name}: ${step.status} - ${step.finding}`
-      ).join(' | ') || '';
+      const validationSteps =
+        r.cot_steps
+          ?.map(
+            (step: any) => `${step.step_name}: ${step.status} - ${step.finding}`
+          )
+          .join(" | ") || "";
 
-      const supportingClauses = r.supporting_clauses?.join(' | ') || '';
+      const supportingClauses = r.supporting_clauses?.join(" | ") || "";
 
       return [
-        `"${(r.obligation || '').replace(/"/g, '""')}"`,
-        r.is_present || '',
-        `"${(r.reason || '').replace(/"/g, '""')}"`,
-        r.confidence || '',
-        r.similarity_score || '',
-        r.page || '',
-        r.line || '',
-        `"${(r.suggestion || '').replace(/"/g, '""')}"`,
+        `"${(r.obligation || "").replace(/"/g, '""')}"`,
+        r.is_present || "",
+        `"${(r.reason || "").replace(/"/g, '""')}"`,
+        r.confidence || "",
+        r.similarity_score || "",
+        r.page || "",
+        r.line || "",
+        `"${(r.suggestion || "").replace(/"/g, '""')}"`,
         `"${supportingClauses.replace(/"/g, '""')}"`,
-        `"${validationSteps.replace(/"/g, '""')}"`
-      ].join(',');
+        `"${validationSteps.replace(/"/g, '""')}"`,
+      ].join(",");
     });
 
     // Add summary section at the top
     const summaryRows = [
-      ['Contract Analysis Report'],
-      ['Export Date', new Date().toISOString()],
-      ['Analyzed By', username || 'User'],
-      ['Total Obligations', totalObligations],
-      ['Compliant', compliantCount],
-      ['Non-Compliant', nonCompliantCount],
-      ['Compliance Score', `${avgScore}%`],
+      ["Contract Analysis Report"],
+      ["Export Date", new Date().toISOString()],
+      ["Analyzed By", username || "User"],
+      ["Total Obligations", totalObligations],
+      ["Compliant", compliantCount],
+      ["Non-Compliant", nonCompliantCount],
+      ["Compliance Score", `${avgScore}%`],
       [],
-      headers
+      headers,
     ];
 
     const csvContent = [
-      ...summaryRows.map(row => row.join(',')),
-      ...rows
-    ].join('\n');
+      ...summaryRows.map((row) => row.join(",")),
+      ...rows,
+    ].join("\n");
 
     // Create and download the CSV file
-    const BOM = '\uFEFF'; // UTF-8 BOM for Excel compatibility
-    const dataBlob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const BOM = "\uFEFF"; // UTF-8 BOM for Excel compatibility
+    const dataBlob = new Blob([BOM + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `contract-analysis-report-${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `contract-analysis-report-${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -160,10 +167,10 @@ export function AnalysisResults({
 
   return (
     <div>
-      <div className="pt-4 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-purple-100 p-8">
+      <div className="pt-4 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-border-primary p-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <span className="bg-linear-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent text-2xl font-bold block">
+            <span className="bg-linear-to-r from-linear-primary to-linear-secondary bg-clip-text text-transparent text-2xl font-bold block">
               Analysis Results
             </span>
             <span className="text-sm text-gray-500 font-medium">
@@ -172,13 +179,13 @@ export function AnalysisResults({
           </div>
           <div className="flex gap-2">
             <button
-              className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm cursor-pointer"
+              className="px-4 py-2 bg-export-action-button-bg text-export-action-button rounded-lg hover:bg-export-action-button-hover transition-colors text-sm cursor-pointer"
               onClick={handleExportReport}
             >
               Export Report
             </button>
             <button
-              className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm cursor-pointer"
+              className="px-4 py-2 bg-export-action-button-bg text-export-action-button rounded-lg hover:bg-export-action-button-hover transition-colors text-sm cursor-pointer"
               onClick={() => print()}
             >
               Print
@@ -192,9 +199,9 @@ export function AnalysisResults({
               <StatCard
                 label="Total Obligations"
                 value={totalObligations}
-                fromColor="from-purple-500"
-                toColor="to-purple-600"
-                labelColor="text-purple-100"
+                fromColor="from-first-stat-card-linear-primary"
+                toColor="to-first-stat-card-linear-secondary"
+                labelColor="text-first-stat-card-label-color"
                 icon="📊"
               />
               <StatCard
@@ -218,9 +225,9 @@ export function AnalysisResults({
               <StatCard
                 label="Processing Time"
                 value="3.2s"
-                fromColor="from-blue-500"
-                toColor="to-blue-600"
-                labelColor="text-blue-100"
+                fromColor="from-last-stat-card-linear-primary"
+                toColor="to-last-stat-card-linear-secondary"
+                labelColor="text-last-stat-card-label-color"
                 icon="⚡"
               />
             </div>
@@ -248,10 +255,11 @@ export function AnalysisResults({
 
           {/* Center: PDF Viewer */}
           <div
-            className={`lg:col-span-5 pdf-highlight-${selectedObligation?.is_present === "Yes"
-              ? "compliance"
-              : "non-compliance"
-              }`}
+            className={`lg:col-span-5 pdf-highlight-${
+              selectedObligation?.is_present === "Yes"
+                ? "compliance"
+                : "non-compliance"
+            }`}
           >
             <PdfContainer file={pdfFile} selectedClause={selectedClause} />
           </div>
