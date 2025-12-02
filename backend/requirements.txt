@@ -17,3 +17,4 @@ openpyxl
 python-docx
 scikit-learn
 tiktoken
+numpy

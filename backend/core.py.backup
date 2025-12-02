@@ -3,6 +3,7 @@ import shutil
 import uuid
 import logging
 import json
+import hashlib
 import fitz  # PyMuPDF
 import pandas as pd
 import numpy as np
@@ -17,10 +18,20 @@ from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
 from sklearn.metrics.pairwise import cosine_similarity
+import time
 
 # Setup logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 load_dotenv()
+logger = logging.getLogger(__name__)
+
+# Validate environment variables
+if not os.getenv("OPENAI_API_KEY"):
+    logger.error("OPENAI_API_KEY not found in environment variables!")
+    raise ValueError("OPENAI_API_KEY must be set in .env file")
 
 # Initialize globals
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -39,6 +50,43 @@ except OSError:
 
 USER_DIR = "user_memory"
 os.makedirs(USER_DIR, exist_ok=True)
+
+# Keyword cache directory
+KEYWORD_CACHE_DIR = os.path.join(USER_DIR, "keyword_cache")
+os.makedirs(KEYWORD_CACHE_DIR, exist_ok=True)
+KEYWORD_CACHE_FILE = os.path.join(KEYWORD_CACHE_DIR, "keywords.json")
+
+# Load keyword cache from disk
+def load_keyword_cache():
+    """Load keyword cache from disk."""
+    if os.path.exists(KEYWORD_CACHE_FILE):
+        try:
+            with open(KEYWORD_CACHE_FILE, 'r', encoding='utf-8') as f:
+                cache = json.load(f)
+                logger.info(f"Loaded keyword cache with {len(cache)} entries")
+                return cache
+        except Exception as e:
+            logger.warning(f"Failed to load keyword cache: {e}")
+            return {}
+    return {}
+
+def save_keyword_cache(cache):
+    """Save keyword cache to disk."""
+    try:
+        with open(KEYWORD_CACHE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(cache, f, indent=2, ensure_ascii=False)
+        logger.info(f"Saved keyword cache with {len(cache)} entries")
+    except Exception as e:
+        logger.error(f"Failed to save keyword cache: {e}")
+
+def get_cache_key(obligation):
+    """Generate cache key for an obligation."""
+    return hashlib.sha256(obligation.encode('utf-8')).hexdigest()
+
+# Initialize keyword cache
+_keyword_cache = load_keyword_cache()
+
+logger.info("Core module initialized successfully")
 
 def detect_language(text):
     try:
@@ -107,27 +155,56 @@ def extract_text_from_txt(file_bytes):
 
 def chunk_text(records):
     # CRITICAL FIX: Group text by page first to avoid fragmenting into single lines
+    # Also preserve line number information for each chunk with accurate tracking
     pages = {}
+    page_line_map = {}  # Track line numbers for each page
+    
     for rec in records:
         p = rec.get("page", 1)
+        line = rec.get("line", 1)
+        
         if p not in pages:
             pages[p] = []
+            page_line_map[p] = []
+        
         pages[p].append(rec["text"])
+        page_line_map[p].append(line)
         
     splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=300)
     docs = []
     
     for page_num, lines in pages.items():
-        # Reconstruct page text
+        # Reconstruct page text with line tracking
         page_text = "\n".join(lines)
+        line_numbers = page_line_map[page_num]
+        
+        # Get the starting line number for this page
+        starting_line = line_numbers[0] if line_numbers else 1
         
         # Split into meaningful chunks
         chunks = splitter.split_text(page_text)
+        
+        # Calculate line numbers more accurately
+        current_char_pos = 0
         for idx, chunk in enumerate(chunks):
+            # Find which line this chunk starts at by counting newlines up to this point
+            text_before_chunk = page_text[:current_char_pos]
+            lines_before = text_before_chunk.count('\n')
+            
+            # Calculate the actual line number for this chunk
+            if lines_before < len(line_numbers):
+                chunk_line = line_numbers[lines_before]
+            else:
+                # Fallback if we're beyond tracked lines
+                chunk_line = starting_line + lines_before
+            
             docs.append(Document(
                 page_content=chunk, 
-                metadata={"page": page_num, "line": "n/a", "chunk_id": idx}
+                metadata={"page": page_num, "line": chunk_line, "chunk_id": idx}
             ))
+            
+            # Update position for next chunk
+            current_char_pos += len(chunk)
             
     return docs
 
@@ -139,9 +216,24 @@ def build_vector_store(docs, path):
     return vs
 
 def generate_dynamic_keywords(obligations):
+    """Generate keywords for obligations with persistent caching for consistency."""
+    global _keyword_cache
     keywords_dict = {}
+    cache_updated = False
+    
     for ob in obligations:
+        cache_key = get_cache_key(ob)
+        
+        # Check cache first
+        if cache_key in _keyword_cache:
+            keywords_dict[ob] = _keyword_cache[cache_key]
+            logger.info(f"Using cached keywords for: {ob[:50]}...")
+            continue
+        
+        # Generate new keywords if not in cache
         try:
+            logger.info(f"Generating keywords for: {ob[:50]}...")
+            
             # Dynamic LLM-based keyword generation for generic applicability
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -149,10 +241,13 @@ def generate_dynamic_keywords(obligations):
                     {"role": "system", "content": "You are a legal search expert. Return a JSON object with a key 'keywords' containing 5-8 search terms for the given obligation. \n\nCRITICAL: You must predict the **exact words** a vendor would use to **limit** or **avoid** this obligation.\n- Example: If obligation is 'fix', search for 'refund', 'credit', 'obsolescence'.\n- Example: If obligation is 'indemnify', search for 'defend', 'hold harmless', 'control of defense'.\n- Example: If obligation is 'unlimited', search for 'cap', 'aggregate liability', 'fees paid'.\n\nFocus on specific nouns and verbs found in the contract text."},
                     {"role": "user", "content": ob}
                 ],
-                temperature=0.2,
+                temperature=0.0,  # Changed from 0.2 to 0.0 for determinism
+                seed=42,  # Added seed for reproducibility
                 response_format={"type": "json_object"}
             )
             res_text = response.choices[0].message.content
+            logger.debug(f"LLM keyword response for '{ob[:30]}...': {res_text}")
+            
             parsed = json.loads(res_text)
             keywords = parsed.get("keywords", [])
             
@@ -161,19 +256,86 @@ def generate_dynamic_keywords(obligations):
             universal_danger_words = ["refund", "reimburse", "terminate", "cap", "limit", "sole discretion", "exclusive remedy", "unless", "except", "notwithstanding", "subject to", "provided that"]
             keywords.extend(universal_danger_words)
             
-            keywords_dict[ob] = list(set(keywords))
+            # Deduplicate and sort for consistency
+            keywords = sorted(list(set(keywords)))
+            keywords_dict[ob] = keywords
+            
+            # Cache the result
+            _keyword_cache[cache_key] = keywords
+            cache_updated = True
+            
         except Exception as e:
-            logging.error(f"Keyword generation failed for '{ob}': {e}")
+            logger.error(f"Keyword generation failed for '{ob}': {e}")
             # Fallback: simple noun chunks + danger words
             try:
                 doc = nlp(ob)
                 base_kws = [chunk.text.lower() for chunk in doc.noun_chunks]
                 base_kws.extend(["refund", "reimburse", "terminate", "cap", "limit"])
-                keywords_dict[ob] = base_kws
+                keywords = sorted(list(set(base_kws)))
+                keywords_dict[ob] = keywords
+                _keyword_cache[cache_key] = keywords
+                cache_updated = True
             except:
-                keywords_dict[ob] = ob.split()[:5] + ["refund", "reimburse", "terminate"]
+                keywords = sorted(ob.split()[:5] + ["refund", "reimburse", "terminate"])
+                keywords_dict[ob] = keywords
+                _keyword_cache[cache_key] = keywords
+                cache_updated = True
+    
+    # Save cache if updated
+    if cache_updated:
+        save_keyword_cache(_keyword_cache)
                 
     return keywords_dict
+
+
+def create_fallback_steps(final_status, reason):
+    """
+    Generate step-by-step visualization based on the final decision and reason.
+    Since we reverted to the original prompt for accuracy, we reconstruct the steps
+    here to provide the UI with the expected data structure.
+    """
+    reason_lower = reason.lower() if reason else ""
+    
+    # Default: All PASS if Yes, FAIL on match/conflict if No
+    steps = [
+        {"step_number": 1, "step_name": "Identify Obligation Purpose", "status": "PASS", "finding": "Obligation purpose identified.", "is_critical": False},
+        {"step_number": 2, "step_name": "Analyze Clause Effect", "status": "PASS", "finding": "Clause effect analyzed.", "is_critical": False},
+        {"step_number": 3, "step_name": "Match Analysis", "status": "PASS", "finding": "Clause matches obligation.", "is_critical": False},
+        {"step_number": 4, "step_name": "Material Conflicts Check", "status": "PASS", "finding": "No material conflicts found.", "is_critical": False},
+        {"step_number": 5, "step_name": "Termination Check", "status": "PASS", "finding": "No termination options found.", "is_critical": True},
+        {"step_number": 6, "step_name": "Discretion Check", "status": "PASS", "finding": "Discretion is acceptable.", "is_critical": True},
+        {"step_number": 7, "step_name": "Negative Obligation Check", "status": "N/A", "finding": "Not applicable.", "is_critical": True}
+    ]
+    
+    if final_status == "No":
+        # Heuristic: Try to identify which step failed based on keywords in the reason
+        
+        # Step 5: Termination Check
+        if any(x in reason_lower for x in ["refund", "reimburse", "credit", "termination option"]):
+            steps[4]["status"] = "FAIL"
+            steps[4]["finding"] = reason
+            steps[2]["status"] = "WARNING" # Match analysis likely partial
+        
+        # Step 6: Discretion Check
+        elif any(x in reason_lower for x in ["discretion", "sole discretion", "may provide"]):
+            steps[5]["status"] = "FAIL"
+            steps[5]["finding"] = reason
+            steps[2]["status"] = "WARNING"
+            
+        # Step 7: Negative Obligation Check
+        elif any(x in reason_lower for x in ["exception", "unless", "re-impose", "negate exclusion"]):
+            steps[6]["status"] = "FAIL"
+            steps[6]["finding"] = reason
+            steps[6]["status"] = "FAIL" # Set status to FAIL (was N/A)
+            
+        # Default: Match Analysis or Material Conflict
+        else:
+            steps[2]["status"] = "FAIL"
+            steps[2]["finding"] = reason
+            steps[3]["status"] = "FAIL"
+            steps[3]["finding"] = "Material differences found."
+            
+    return steps
 
 def query_rag(vs, obligation, auto_keywords, top_k=10):
     retriever = vs.as_retriever(search_type="similarity", search_kwargs={"k": top_k})
@@ -183,7 +345,9 @@ def query_rag(vs, obligation, auto_keywords, top_k=10):
         return {
             "obligation": obligation, "is_present": "No", "reason": "No relevant clauses retrieved.",
             "similarity_score": 0.0, "keyword_hits": [], "confidence": 0.0,
-            "page": None, "line": None, "supporting_clauses": []
+            "page": None, "line": None, "supporting_clauses": [],
+            "suggestion": "Unable to find relevant clauses in the contract.",
+            "cot_steps": create_fallback_steps("No", "No relevant clauses retrieved.")
         }
     
     ob_emb = embedder.embed_query(obligation)
@@ -205,6 +369,22 @@ def query_rag(vs, obligation, auto_keywords, top_k=10):
 You are a contract compliance analyst. Analyze whether the contract clause satisfies the obligation.
 
 CRITICAL: Focus on LEGAL EFFECT and COMMERCIAL OUTCOME, not exact wording.
+
+MANDATORY PRE-CHECKS (Check these FIRST before any other analysis):
+
+1. ⚠️ TERMINATION CHECK: 
+   - IF Obligation requires: "continued use", "ensure access", "maintain availability" (PRIMARY GOAL)
+   - AND Clause offers: "reimburse", "refund", "credit" (TERMINATION OPTION)
+   - THEN Result: "No" (Conflict: Termination ≠ Continued Use)
+   - EXCEPTION: If "secure rights" is just a METHOD to remedy infringement, this check does NOT apply.
+
+2. ⚠️ NEGATIVE OBLIGATION CHECK:
+   - IF Obligation says: "does NOT have to", "NOT liable", "no obligation"
+   - AND Clause has: "unless", "except", "provided that" conditions
+   - AND Conditions: RE-IMPOSE the liability the obligation excluded
+   - THEN Result: "No" (Conflict: Exceptions negate the exclusion)
+
+INSTRUCTION: If ANY pre-check fails, stop immediately and return "No". Do not over-analyze.
 
 Analysis Framework:
 1. **Identify the Obligation's Purpose**: What commercial outcome or risk allocation does the obligation seek?
@@ -271,10 +451,11 @@ Obligation:
 Relevant Clauses:
 {chr(10).join([d.page_content for d in docs])}
 """
-    print("DEBUG: Generated Prompt:\n", prompt) # Debugging line
+    logger.debug(f"Generated Prompt for '{obligation[:50]}...': {prompt[:500]}...")
+
     llm_status, llm_reason = "No", ""
     try:
-        # Chain-of-Thought Analysis with GPT-4o
+        # Chain-of-Thought Analysis with GPT-4o-mini
         cot_prompt = f"""
 {prompt}
 
@@ -286,21 +467,40 @@ Step 3: Do they match? (Does the clause achieve the same outcome?)
 Step 4: Are there any material conflicts? (Does the clause negate or weaken the obligation?)
 Step 5: CRITICAL CHECK - If the obligation requires "continued use", "replace", or "secure rights", does the clause offer "reimburse", "refund", or "credit" as an option? If YES, this is a TERMINATION option that conflicts with continued use → Answer must be "No"
 Step 6: CRITICAL CHECK - If the clause says "at vendor's sole discretion", does it provide multiple remedy options (e.g., "modify OR secure licenses")? If YES, this is discretion on HOW (method), not WHETHER (outcome) → The vendor MUST act, they just choose the method → Answer should be "Yes" if the methods achieve the same outcome
+Step 7: NEGATIVE OBLIGATION CHECK - If the obligation says "does NOT have to" or "NOT liable" or "no obligation", check if the clause has "unless" or "except" conditions. Ask: Do these conditions RE-IMPOSE the liability the obligation sought to EXCLUDE? If YES (the exceptions make vendor liable again for scenarios the obligation excluded) → Answer MUST be "No"
 
 After completing these steps, provide your final JSON answer.
 """
         
-        resp = client.chat.completions.create(
-            model="gpt-4o-mini",  # Switched back to gpt-4o-mini as requested
-            messages=[
-                {"role": "system", "content": "You are a meticulous contract compliance expert. Think step-by-step before answering."},
-                {"role": "user", "content": cot_prompt}
-            ],
-            temperature=0.0,  # Deterministic reasoning
-            max_tokens=800
-        )
-        res_text = resp.choices[0].message.content.strip()
-        print("DEBUG: LLM Response:\n", res_text)
+        # Retry logic for LLM calls
+        max_retries = 3
+        retry_delay = 1
+        
+        for attempt in range(max_retries):
+            try:
+                resp = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": "You are a meticulous contract compliance expert. Think step-by-step before answering."},
+                        {"role": "user", "content": cot_prompt}
+                    ],
+                    temperature=0.0,  # Deterministic reasoning
+                    seed=42,      # Fixed seed for reproducibility
+                    max_tokens=800
+                )
+                res_text = resp.choices[0].message.content.strip()
+                logger.info(f"LLM analysis completed for '{obligation[:50]}...' (attempt {attempt + 1})")
+                logger.debug(f"LLM Response: {res_text}")
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"LLM call failed (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {retry_delay}s...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    logger.error(f"LLM call failed after {max_retries} attempts: {e}")
+                    raise
+
         
         # Extract JSON from response
         if "```json" in res_text:
@@ -331,9 +531,15 @@ After completing these steps, provide your final JSON answer.
             llm_suggestion = None
         elif not llm_suggestion or llm_suggestion == "null":
             llm_suggestion = "Consider adding explicit language to address this obligation."
-    except Exception:
+        
+        # Create fallback steps for backward compatibility
+        cot_steps = create_fallback_steps(llm_status, llm_reason)
+            
+    except Exception as e:
+        logger.error(f"Error parsing LLM response for '{obligation[:50]}...': {e}")
         llm_reason = "Reason could not be parsed from model response."
         llm_suggestion = "Could not generate suggestion due to error."
+        cot_steps = create_fallback_steps("No", llm_reason)
     
     # Final Status based on LLM (Semantic Analysis)
     final_status = llm_status
@@ -341,14 +547,28 @@ After completing these steps, provide your final JSON answer.
     # Removed strict similarity threshold to allow LLM reasoning (semantic match) to prevail
     # even if cosine similarity is low due to vocabulary differences.
 
-    supporting_clauses = [f"[Page {d.metadata.get('page')} Line {d.metadata.get('line')}] {d.page_content[:250].strip()}" for d in docs]
+    # Generate supporting clauses with deduplication by page/line
+    seen_locations = set()
+    supporting_clauses = []
+    
+    for d in docs:
+        page = d.metadata.get('page')
+        line = d.metadata.get('line')
+        location_key = (page, line)
+        
+        # Only add if we haven't seen this page/line combination
+        if location_key not in seen_locations:
+            clause_text = d.page_content[:250].strip()
+            supporting_clauses.append(f"[Page {page} Line {line}] {clause_text}")
+            seen_locations.add(location_key)
     
     return {
         "obligation": obligation, "is_present": final_status, "reason": llm_reason,
         "similarity_score": round(best_score, 3), "keyword_hits": keyword_hits,
         "confidence": confidence, "page": best_doc.metadata.get("page"), "line": best_doc.metadata.get("line"),
         "supporting_clauses": supporting_clauses,
-        "suggestion": llm_suggestion
+        "suggestion": llm_suggestion,
+        "cot_steps": cot_steps  # NEW: Step-by-step validation results
     }
 
 def analyze_contract(obligations_file_bytes, obligations_filename, contract_file_bytes, contract_filename, session_id):
@@ -394,8 +614,12 @@ def analyze_contract(obligations_file_bytes, obligations_filename, contract_file
     for ob in obligations:
         results.append(query_rag(vs, ob, auto_keywords))
         
-    # Cleanup vector store
-    # shutil.rmtree(vector_path) # Optional: keep it for caching or delete
+    # Cleanup vector store to prevent disk bloat
+    try:
+        shutil.rmtree(vector_path)
+        logger.info(f"Cleaned up vector store: {vector_path}")
+    except Exception as e:
+        logger.warning(f"Failed to cleanup vector store {vector_path}: {e}")
     
     # 6. Prepare Full Text for Preview Fallback
     full_text = "\n\n".join([r["text"] for r in records])
